@@ -1,0 +1,21 @@
+{
+  "name": "mern-billing-app",
+  "version": "1.0.0",
+  "description": "Modern MERN stack billing application with PDF download",
+  "scripts": {
+    "install-server": "cd server && npm install",
+    "install-client": "cd client && npm install",
+    "install-all": "npm run install-server && npm run install-client",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "cd server && npm run dev",
+    "client": "cd client && npm run dev",
+    "build": "cd client && npm run build",
+    "start": "cd server && npm start"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  },
+  "keywords": ["mern", "billing", "react", "mongodb", "express", "pdf"],
+  "author": "Senior Full Stack Developer",
+  "license": "MIT"
+}
