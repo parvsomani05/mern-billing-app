@@ -42,6 +42,7 @@ const Navbar = () => {
       { name: 'Shop', href: '/customer/products', icon: ShoppingCart, current: location.pathname.startsWith('/customer/products') },
       { name: 'My Bills', href: '/customer/bills', icon: FileText, current: location.pathname.startsWith('/customer/bills') },
     ] : []),
+    { name: 'Contact', href: '/contact', icon: Phone, current: location.pathname === '/contact' },
     { name: 'Profile', href: '/profile', icon: User, current: location.pathname === '/profile' },
   ]
 

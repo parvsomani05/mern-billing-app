@@ -63,7 +63,7 @@ class PDFGenerator {
   // 🟦 Header with Company Info + Logo + INVOICE Label
   static addCompanyHeader(doc, companyInfo) {
     const defaultCompany = {
-      name: "MERN Billing App",
+      name: "Quibix - Billing System",
       address: "123 Business Street, Tech City, TC 12345",
       phone: "+1 (555) 123-4567",
       email: "info@billingapp.com",
