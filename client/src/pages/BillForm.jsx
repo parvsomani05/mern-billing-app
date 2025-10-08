@@ -46,7 +46,8 @@ const BillForm = () => {
       })
 
       if (response.ok) {
-      const data = await response.json()
+        const data = await response.json()
+        console.log('Products fetched:', data.data) // Debug log
         setProducts(data.data || [])
       }
     } catch (error) {
@@ -402,68 +403,108 @@ const BillForm = () => {
 
             <div className="space-y-4">
               {formData.items.map((item, index) => (
-                <div key={index} className="grid grid-cols-1 md:grid-cols-6 gap-4 p-4 border border-gray-200 rounded-md">
-                  <div>
-                    <select
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      value={item.productId}
-                      onChange={(e) => handleItemChange(index, 'productId', e.target.value)}
-                    >
-                      <option value="">Select Product</option>
-                      {products.map((product) => (
-                        <option key={product._id} value={product._id}>
-                          {product.name} (₹{product.price})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                <div key={index} className="border border-gray-200 rounded-md p-4">
+                  <div className="grid grid-cols-1 md:grid-cols-7 gap-4 items-center">
+                    <div className="md:col-span-2">
+                      <select
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        value={item.productId}
+                        onChange={(e) => handleItemChange(index, 'productId', e.target.value)}
+                      >
+                        <option value="">Select Product</option>
+                        {products.map((product) => (
+                          <option key={product._id} value={product._id}>
+                            {product.name} (₹{product.price})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-                  <div>
-                    <input
-                      type="number"
-                      min="1"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Qty"
-                      value={item.quantity}
-                      onChange={(e) => handleItemChange(index, 'quantity', parseInt(e.target.value) || 1)}
-                    />
-                  </div>
+                    {/* Product Preview */}
+                    {item.productId && (
+                      <div className="md:col-span-2 flex items-center space-x-3 p-2 bg-gray-50 rounded-md">
+                        {(() => {
+                          const selectedProduct = products.find(p => p._id === item.productId)
+                          console.log('Selected product for preview:', selectedProduct) // Debug log
+                          return selectedProduct ? (
+                            <>
+                              {selectedProduct.image ? (
+                                <img
+                                  src={selectedProduct.image.startsWith('http') ? selectedProduct.image : `/api/products/image/${selectedProduct.image}`}
+                                  alt={selectedProduct.name}
+                                  className="w-12 h-12 object-cover rounded"
+                                  onError={(e) => {
+                                    console.log('Image failed to load:', e.target.src) // Debug log
+                                    console.log('Original image value:', selectedProduct.image) // Debug log
+                                    e.target.style.display = 'none'
+                                  }}
+                                />
+                              ) : (
+                                <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center">
+                                  <span className="text-xs text-gray-400">No Image</span>
+                                </div>
+                              )}
+                              <div>
+                                <p className="font-medium text-sm">{selectedProduct.name}</p>
+                                <p className="text-xs text-gray-500">₹{selectedProduct.price}</p>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="w-12 h-12 bg-red-200 rounded flex items-center justify-center">
+                              <span className="text-xs text-red-600">Not Found</span>
+                            </div>
+                          )
+                        })()}
+                      </div>
+                    )}
 
-                  <div>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Price"
-                      value={item.price}
-                      onChange={(e) => handleItemChange(index, 'price', parseFloat(e.target.value) || 0)}
-                    />
-                  </div>
+                    <div>
+                      <input
+                        type="number"
+                        min="1"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Qty"
+                        value={item.quantity}
+                        onChange={(e) => handleItemChange(index, 'quantity', parseInt(e.target.value) || 1)}
+                      />
+                    </div>
 
-                  <div>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-50"
-                      placeholder="Total"
-                      value={item.total.toFixed(2)}
-                      readOnly
-                    />
-                  </div>
+                    <div>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Price"
+                        value={item.price}
+                        onChange={(e) => handleItemChange(index, 'price', parseFloat(e.target.value) || 0)}
+                      />
+                    </div>
 
-                  <div className="flex items-center">
-                    <button
-                      type="button"
-                      onClick={() => removeItem(index)}
-                      disabled={formData.items.length === 1}
-                      className="text-red-600 hover:text-red-800 disabled:opacity-50"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
+                    <div>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-50"
+                        placeholder="Total"
+                        value={item.total.toFixed(2)}
+                        readOnly
+                      />
+                    </div>
+
+                    <div className="flex items-center">
+                      <button
+                        type="button"
+                        onClick={() => removeItem(index)}
+                        disabled={formData.items.length === 1}
+                        className="text-red-600 hover:text-red-800 disabled:opacity-50"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}

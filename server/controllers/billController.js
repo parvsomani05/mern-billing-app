@@ -215,6 +215,12 @@ exports.createRazorpayOrder = async (req, res, next) => {
     bill.razorpayOrderId = order.id;
     await bill.save();
 
+    console.log('Razorpay Key ID:', process.env.RAZORPAY_KEY_ID); // Debug log
+    console.log('Environment check:', {
+      hasKey: !!process.env.RAZORPAY_KEY_ID,
+      keyLength: process.env.RAZORPAY_KEY_ID ? process.env.RAZORPAY_KEY_ID.length : 0
+    });
+
     res.status(200).json({
       success: true,
       message: 'Razorpay order created successfully',
@@ -223,6 +229,7 @@ exports.createRazorpayOrder = async (req, res, next) => {
         amount: order.amount,
         currency: order.currency,
         key: process.env.RAZORPAY_KEY_ID,
+        razorpayKeyId: process.env.RAZORPAY_KEY_ID, // Also send as razorpayKeyId for compatibility
         billNumber: bill.billNumber,
         customerName: bill.customer.name,
         description: `Payment for Invoice ${bill.billNumber}`
@@ -650,7 +657,7 @@ exports.deleteBill = async (req, res, next) => {
       return next(new ErrorResponse('Not authorized to delete this bill', 401));
     }
 
-    await bill.remove();
+    await Bill.findByIdAndDelete(req.params.id);
 
     res.status(200).json({
       success: true,

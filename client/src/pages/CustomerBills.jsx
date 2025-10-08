@@ -1,7 +1,17 @@
 import { useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
 import { useAuthStore } from '../store/authStore'
-import EmailInvoiceModal from '../components/EmailInvoiceModal'
+
+// Razorpay script loading
+const loadRazorpayScript = () => {
+  return new Promise((resolve) => {
+    const script = document.createElement('script')
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+    script.onload = () => resolve(true)
+    script.onerror = () => resolve(false)
+    document.body.appendChild(script)
+  })
+}
 
 const CustomerBills = () => {
   const [bills, setBills] = useState([])
@@ -10,8 +20,6 @@ const CustomerBills = () => {
   const [statusFilter, setStatusFilter] = useState('')
   const [selectedBill, setSelectedBill] = useState(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [emailModalOpen, setEmailModalOpen] = useState(false)
-  const [emailBill, setEmailBill] = useState(null)
 
   const { user } = useAuthStore()
 
@@ -167,6 +175,99 @@ const CustomerBills = () => {
     }
   }
 
+  // Razorpay payment handler
+  const handlePayment = async (bill) => {
+    try {
+      // Load Razorpay script
+      const scriptLoaded = await loadRazorpayScript()
+      if (!scriptLoaded) {
+        toast.error('Failed to load payment gateway. Please try again.')
+        return
+      }
+
+      // Create order on backend
+      const response = await fetch(`/api/bills/${bill._id}/create-order`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`Failed to create payment order: ${response.status} - ${errorText}`)
+      }
+
+      const orderData = await response.json()
+      console.log('Order data received:', orderData) // Debug log
+
+      // Extract the data object
+      const data = orderData.data || orderData
+
+      // Check if key is available
+      const razorpayKey = data.key || data.razorpayKeyId
+      if (!razorpayKey) {
+        console.error('No Razorpay key received from backend:', orderData)
+        toast.error('Payment configuration error. Please contact support.')
+        return
+      }
+
+      // Razorpay options
+      const options = {
+        key: razorpayKey, // Razorpay key from backend
+        amount: data.amount,
+        currency: data.currency,
+        name: 'MERN BILLING APP',
+        description: `Payment for ${bill.billNumber || `Bill #${bill._id?.slice(-8)}`}`,
+        order_id: data.orderId,
+        handler: async (response) => {
+          // Payment success handler
+          try {
+            const verifyResponse = await fetch(`/api/bills/${bill._id}/verify-payment`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+              },
+              body: JSON.stringify({
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_signature: response.razorpay_signature
+              })
+            })
+
+            if (verifyResponse.ok) {
+              toast.success('Payment successful! Bill status updated.')
+              fetchBills() // Refresh bills to show updated status
+              if (isModalOpen) {
+                viewBillDetails(bill._id) // Refresh modal data
+              }
+            } else {
+              toast.error('Payment verification failed')
+            }
+          } catch (error) {
+            toast.error('Payment verification failed')
+            console.error('Payment verification error:', error)
+          }
+        },
+        prefill: {
+          name: user?.name || '',
+          email: user?.email || '',
+        },
+        theme: {
+          color: '#2563eb'
+        }
+      }
+
+      const rzp = new window.Razorpay(options)
+      rzp.open()
+    } catch (error) {
+      toast.error('Failed to initiate payment')
+      console.error('Payment error:', error)
+    }
+  }
+
   const filteredBills = bills.filter(bill =>
     bill.billNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     bill.customer?.name?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -289,15 +390,15 @@ const CustomerBills = () => {
                     Download PDF
                   </button>
                 </div>
-                <button
-                  onClick={() => {
-                    setEmailBill(bill)
-                    setEmailModalOpen(true)
-                  }}
-                  className="w-full bg-purple-600 text-white py-2 px-3 rounded-lg hover:bg-purple-700 transition-colors text-sm"
-                >
-                  📧 Email Invoice
-                </button>
+                {/* Pay Bill Button for Pending Bills */}
+                {(bill.paymentStatus === 'pending' || !bill.paymentStatus) && (
+                  <button
+                    onClick={() => handlePayment(bill)}
+                    className="w-full bg-purple-600 text-white py-2 px-3 rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
+                  >
+                    Pay Bill (₹{bill.totalAmount?.toFixed(2)})
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -431,6 +532,18 @@ const CustomerBills = () => {
               >
                 Download PDF
               </button>
+              {/* Pay Bill Button for Pending Bills in Modal */}
+              {(selectedBill.paymentStatus === 'pending' || !selectedBill.paymentStatus) && (
+                <button
+                  onClick={() => {
+                    setIsModalOpen(false)
+                    handlePayment(selectedBill)
+                  }}
+                  className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition-colors font-medium"
+                >
+                  Pay Bill (₹{selectedBill.totalAmount?.toFixed(2)})
+                </button>
+              )}
               <button
                 onClick={() => setIsModalOpen(false)}
                 className="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-400 transition-colors"
@@ -442,17 +555,7 @@ const CustomerBills = () => {
         </div>
       )}
 
-      {/* Email Invoice Modal */}
-      <EmailInvoiceModal
-        isOpen={emailModalOpen}
-        onClose={() => {
-          setEmailModalOpen(false)
-          setEmailBill(null)
-        }}
-        billId={emailBill?._id}
-        billNumber={emailBill?.billNumber}
-        customerEmail={emailBill?.customer?.email}
-      />
+
     </div>
   )
 }

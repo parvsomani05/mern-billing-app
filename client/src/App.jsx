@@ -16,8 +16,7 @@ import ProductForm from './pages/ProductForm'
 import Bills from './pages/Bills'
 import BillForm from './pages/BillForm'
 import BillDetails from './pages/BillDetails'
-import Customers from './pages/Customers'
-import CustomerForm from './pages/CustomerForm'
+
 import Profile from './pages/Profile'
 import Contact from './pages/Contact'
 import ContactList from './pages/ContactList'
@@ -162,31 +161,7 @@ function App() {
             }
           />
 
-          {/* Customer Routes */}
-          <Route
-            path="/customers"
-            element={
-              <ProtectedRoute adminOnly>
-                <Customers />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/customers/new"
-            element={
-              <ProtectedRoute adminOnly>
-                <CustomerForm />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/customers/:id/edit"
-            element={
-              <ProtectedRoute adminOnly>
-                <CustomerForm />
-              </ProtectedRoute>
-            }
-          />
+
 
           {/* Contact Management Routes (Admin Only) */}
           <Route
