@@ -61,7 +61,7 @@ class PDFGenerator {
   }
 
   // 🟦 Header with Company Info + Logo + INVOICE Label
-  static addCompanyHeader(doc, companyInfo) {
+  static addCompanyHeader(doc, companyInfo, billData = null) {
     const defaultCompany = {
       name: "Quibix - Billing System",
       address: "123 Business Street, Tech City, TC 12345",
@@ -76,40 +76,29 @@ class PDFGenerator {
     doc.rect(30, 30, 540, 60).fill("#f1f5f9").strokeColor("#e2e8f0").stroke();
     doc.fillColor("black");
 
-    // Company info
+    // Left side - Company info
     doc.fontSize(16).font("Helvetica-Bold").text(company.name, 40, 40);
     doc.fontSize(9).font("Helvetica");
     doc.text(company.address, 40, 58);
-    doc.text(`Phone: ${company.phone} | Email: ${company.email}`, 40, 70);
+    doc.text(`Phone: ${company.phone}`, 40, 70);
+    doc.text(`Email: ${company.email}`, 40, 82);
 
-    // Logo
-    try {
-      const logoDir = path.join(__dirname, "../uploads/logos");
-      const logoPath = [
-        "logo.png",
-        "company-logo.png",
-        "brand-logo.png",
-        "logo.jpg",
-        "logo.jpeg",
-      ]
-        .map((f) => path.join(logoDir, f))
-        .find((p) => fs.existsSync(p));
-
-      if (logoPath) {
-        doc.image(logoPath, 450, 35, { width: 100 });
-      } else {
-        doc.fontSize(10).fillColor("#6b7280").text("LOGO", 500, 55);
-      }
-    } catch (e) {
-      doc.fontSize(10).fillColor("#6b7280").text("LOGO", 500, 55);
-    }
-
-    // INVOICE Label
+    // Right side - INVOICE Label
     doc
-      .fontSize(20)
+      .fontSize(24)
       .font("Helvetica-Bold")
       .fillColor("#2563eb")
-      .text("INVOICE", 450, 90);
+      .text("INVOICE", 400, 45);
+
+    // Add invoice number below INVOICE label if available
+    if (billData && billData.billNumber) {
+      doc
+        .fontSize(10)
+        .font("Helvetica")
+        .fillColor("#6b7280")
+        .text(`#${billData.billNumber}`, 400, 70);
+    }
+
     doc.fillColor("black");
   }
 
@@ -149,31 +138,60 @@ class PDFGenerator {
       .stroke();
   }
 
-  // 📊 Products Table with alternating row colors
+  // 📊 Products Table with alternating row colors (optimized for 1-2 pages)
   static addProductsTable(doc, products) {
+    const pageHeight = doc.page.height;
+    const maxContentHeight = pageHeight - 100; // Leave space for footer
     const startY = 220;
 
+    // Calculate if we need to compress the table
+    const estimatedRowHeight = 20;
+    const headerHeight = 25;
+    const totalEstimatedHeight = headerHeight + (products.length * estimatedRowHeight);
+
+    // If content might exceed page, use smaller fonts and tighter spacing
+    const useCompactLayout = totalEstimatedHeight > (maxContentHeight - startY);
+
+    let fontSize = useCompactLayout ? 7 : 9;
+    let rowHeight = useCompactLayout ? 16 : 20;
+    let descriptionWidth = useCompactLayout ? 150 : 180;
+
     // Table header
-    doc.rect(30, startY, 540, 20).fill("#2563eb");
-    doc.fillColor("white").font("Helvetica-Bold").fontSize(9);
-    doc.text("Item", 40, startY + 5);
-    doc.text("Description", 120, startY + 5);
-    doc.text("Qty", 320, startY + 5);
-    doc.text("Rate", 370, startY + 5);
-    doc.text("Amount", 450, startY + 5);
+    doc.rect(30, startY, 540, useCompactLayout ? 16 : 20).fill("#2563eb");
+    doc.fillColor("white").font("Helvetica-Bold").fontSize(fontSize);
+    doc.text("Item", 40, startY + (useCompactLayout ? 3 : 5));
+    doc.text("Description", 120, startY + (useCompactLayout ? 3 : 5));
+    doc.text("Qty", 320, startY + (useCompactLayout ? 3 : 5));
+    doc.text("Rate", 370, startY + (useCompactLayout ? 3 : 5));
+    doc.text("Amount", 450, startY + (useCompactLayout ? 3 : 5));
     doc.fillColor("black");
 
-    let y = startY + 25;
+    let y = startY + (useCompactLayout ? 20 : 25);
 
     products.forEach((p, i) => {
-      const rowHeight = 20;
+      // Check if we need a page break (leave space for totals section)
+      if (y > maxContentHeight - 200) {
+        doc.addPage();
+        y = 50; // Start from top of new page
+
+        // Re-add header on new page
+        doc.rect(30, y - 5, 540, useCompactLayout ? 16 : 20).fill("#2563eb");
+        doc.fillColor("white").font("Helvetica-Bold").fontSize(fontSize);
+        doc.text("Item", 40, y + (useCompactLayout ? 3 : 5));
+        doc.text("Description", 120, y + (useCompactLayout ? 3 : 5));
+        doc.text("Qty", 320, y + (useCompactLayout ? 3 : 5));
+        doc.text("Rate", 370, y + (useCompactLayout ? 3 : 5));
+        doc.text("Amount", 450, y + (useCompactLayout ? 3 : 5));
+        doc.fillColor("black");
+        y += useCompactLayout ? 20 : 25;
+      }
+
       const rowColor = i % 2 === 0 ? "#f8fafc" : "#ffffff";
+      doc.rect(30, y - (useCompactLayout ? 3 : 5), 540, rowHeight).fill(rowColor);
 
-      doc.rect(30, y - 5, 540, rowHeight).fill(rowColor);
-
-      doc.fillColor("black").fontSize(8);
+      doc.fillColor("black").fontSize(useCompactLayout ? 6 : 8);
       doc.text(p.productName, 40, y);
-      doc.text(p.productDescription || "-", 120, y, { width: 180 });
+      doc.text(p.productDescription || "-", 120, y, { width: descriptionWidth });
       doc.text(p.quantity.toString(), 320, y);
       doc.text(`₹${p.price.toFixed(2)}`, 370, y);
       doc.text(`₹${p.total.toFixed(2)}`, 450, y);
@@ -187,9 +205,13 @@ class PDFGenerator {
       .stroke();
   }
 
-  // 💰 Totals Box (right aligned)
+  // 💰 Totals Box (right aligned, responsive)
   static addTotalsSection(doc, billData) {
-    const y = 600;
+    const pageHeight = doc.page.height;
+    const currentY = doc.y || 600;
+
+    // If we're getting close to the bottom, start higher
+    const y = Math.min(currentY, pageHeight - 150);
 
     doc
       .rect(330, y - 5, 240, 80)
